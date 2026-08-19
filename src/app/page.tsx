@@ -22,6 +22,7 @@ export default function Home() {
   const [image, setImage] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState("");
+  const [showAnswers, setShowAnswers] = useState(false);
 
   const addWord = () => {
     const value = draft.trim().replace(/\s+/g, " ");
@@ -50,6 +51,7 @@ export default function Home() {
     setGenerating(true);
     setError("");
     setImage(null);
+    setShowAnswers(false);
     setGenerated(true);
 
     setTimeout(() => {
@@ -87,8 +89,6 @@ export default function Home() {
         throw new Error("Polza не вернула operationId.");
       }
 
-      // Проверяем результат каждые 2 секунды.
-      // Как только получаем completed — сразу прекращаем проверки.
       for (let i = 0; i < 150; i++) {
         await new Promise((resolve) => setTimeout(resolve, 2000));
 
@@ -117,8 +117,6 @@ export default function Home() {
           }
 
           setImage(statusData.imageUrl);
-
-          // ВАЖНО: сразу прекращаем цикл.
           return;
         }
 
@@ -144,9 +142,58 @@ export default function Home() {
     }
   };
 
+  const downloadPNG = async () => {
+    if (!image) return;
+
+    try {
+      const response = await fetch(image);
+
+      if (!response.ok) {
+        throw new Error("Не удалось получить изображение.");
+      }
+
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `slovarnaya-kartochka-${theme || "kartochka"}.png`;
+
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      URL.revokeObjectURL(url);
+    } catch {
+      // Если браузер не разрешил скачать файл напрямую,
+      // открываем изображение в новой вкладке.
+      window.open(image, "_blank");
+    }
+  };
+
+  const downloadPDF = () => {
+    if (!image) return;
+
+    window.print();
+  };
+
+  const resetCard = () => {
+    setGenerated(false);
+    setImage(null);
+    setError("");
+    setShowAnswers(false);
+
+    setTimeout(() => {
+      window.scrollTo({
+        top: 0,
+        behavior: "smooth",
+      });
+    }, 50);
+  };
+
   return (
     <main className="min-h-screen">
-      <header className="border-b border-[#e5e9e5] bg-white/90">
+      <header className="border-b border-[#e5e9e5] bg-white/90 print:hidden">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-4">
           <div className="flex items-center gap-3">
             <div className="grid h-10 w-10 place-items-center rounded-xl bg-[#e7f0e7] text-xl">
@@ -161,14 +208,17 @@ export default function Home() {
             </div>
           </div>
 
-          <button className="rounded-lg px-3 py-2 text-sm text-gray-600 hover:bg-gray-100">
+          <button
+            className="rounded-lg px-3 py-2 text-sm text-gray-600 hover:bg-gray-100"
+            onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+          >
             Мои карточки
           </button>
         </div>
       </header>
 
       <section className="mx-auto max-w-6xl px-5 pb-16 pt-12">
-        <div className="max-w-3xl">
+        <div className="max-w-3xl print:hidden">
           <div className="mb-3 inline-flex rounded-full bg-[#e7f0e7] px-3 py-1 text-xs font-semibold text-[#345b38]">
             Обучение через игру
           </div>
@@ -186,7 +236,7 @@ export default function Home() {
           </p>
         </div>
 
-        <div className="mt-10 grid gap-6 lg:grid-cols-[1fr_360px]">
+        <div className="mt-10 grid gap-6 lg:grid-cols-[1fr_360px] print:hidden">
           <div className="rounded-3xl border border-[#e2e7e2] bg-white p-6 shadow-sm">
             <label className="text-sm font-bold">Тема изображения</label>
 
@@ -382,7 +432,7 @@ export default function Home() {
         {generated && (
           <section
             id="result"
-            className="mt-10 rounded-3xl border border-[#e2e7e2] bg-white p-6 shadow-sm"
+            className="mt-10 rounded-3xl border border-[#e2e7e2] bg-white p-6 shadow-sm print:mt-0 print:border-0 print:p-0 print:shadow-none"
           >
             <div className="flex items-center justify-between">
               <div>
@@ -395,21 +445,21 @@ export default function Home() {
                 </p>
               </div>
 
-              <span className="rounded-full bg-[#e7f0e7] px-3 py-1 text-xs font-semibold text-[#345b38]">
+              <span className="rounded-full bg-[#e7f0e7] px-3 py-1 text-xs font-semibold text-[#345b38] print:hidden">
                 Демо
               </span>
             </div>
 
-            <div className="mt-6 grid gap-6 lg:grid-cols-[1.4fr_0.6fr]">
-              <div className="grid min-h-[430px] place-items-center overflow-hidden rounded-2xl bg-gradient-to-br from-[#edf3e9] via-[#f7f4e8] to-[#e7eee8] p-4 text-center">
+            <div className="mt-6 grid gap-6 lg:grid-cols-[1.4fr_0.6fr] print:block">
+              <div className="grid min-h-[430px] place-items-center overflow-hidden rounded-2xl bg-gradient-to-br from-[#edf3e9] via-[#f7f4e8] to-[#e7eee8] p-4 text-center print:min-h-0 print:bg-white print:p-0">
                 {image ? (
                   <img
                     src={image}
                     alt={`Иллюстрация: ${theme}`}
-                    className="h-auto w-full rounded-xl object-contain"
+                    className="h-auto w-full rounded-xl object-contain print:rounded-none"
                   />
                 ) : generating ? (
-                  <div>
+                  <div className="print:hidden">
                     <div className="text-5xl">✦</div>
 
                     <p className="mt-5 font-semibold text-gray-700">
@@ -421,7 +471,7 @@ export default function Home() {
                     </p>
                   </div>
                 ) : error ? (
-                  <div>
+                  <div className="print:hidden">
                     <p className="font-semibold text-red-700">
                       Не удалось создать карточку
                     </p>
@@ -431,7 +481,7 @@ export default function Home() {
                     </p>
                   </div>
                 ) : (
-                  <div>
+                  <div className="print:hidden">
                     <p className="font-semibold text-gray-700">
                       Готовим карточку
                     </p>
@@ -439,7 +489,7 @@ export default function Home() {
                 )}
               </div>
 
-              <div>
+              <div className="print:mt-6">
                 <h3 className="font-bold">Слова для поиска</h3>
 
                 <div className="mt-3 flex flex-wrap gap-2">
@@ -474,23 +524,66 @@ export default function Home() {
                   </li>
                 </ol>
 
-                <div className="mt-7 grid gap-2 sm:grid-cols-3 lg:grid-cols-1">
-                  <button className="rounded-xl border py-3 text-sm font-semibold">
+                {showAnswers && (
+                  <div className="mt-6 rounded-2xl border border-[#dcebdc] bg-[#f7faf7] p-4">
+                    <div className="font-bold text-[#345b38]">
+                      Ответы для учителя
+                    </div>
+
+                    <p className="mt-2 text-sm text-gray-600">
+                      На картинке необходимо найти:
+                    </p>
+
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {words.map((word) => (
+                        <span
+                          key={word}
+                          className="rounded-full bg-white px-3 py-1.5 text-sm font-medium"
+                        >
+                          {word}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div className="mt-7 grid gap-2 sm:grid-cols-3 lg:grid-cols-1 print:hidden">
+                  <button
+                    onClick={downloadPNG}
+                    disabled={!image}
+                    className="rounded-xl border py-3 text-sm font-semibold transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
                     Скачать PNG
                   </button>
 
-                  <button className="rounded-xl border py-3 text-sm font-semibold">
+                  <button
+                    onClick={downloadPDF}
+                    disabled={!image}
+                    className="rounded-xl border py-3 text-sm font-semibold transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
                     Скачать PDF
                   </button>
 
-                  <button className="rounded-xl bg-[#4f7f52] py-3 text-sm font-semibold text-white">
-                    Ответы для учителя
+                  <button
+                    onClick={() => setShowAnswers(!showAnswers)}
+                    className="rounded-xl bg-[#4f7f52] py-3 text-sm font-semibold text-white transition hover:bg-[#345b38]"
+                  >
+                    {showAnswers
+                      ? "Скрыть ответы"
+                      : "Ответы для учителя"}
+                  </button>
+
+                  <button
+                    onClick={resetCard}
+                    className="rounded-xl border border-[#dcebdc] bg-[#f7faf7] py-3 text-sm font-semibold text-[#345b38] transition hover:bg-[#eef5ee]"
+                  >
+                    Создать новую карточку
                   </button>
                 </div>
               </div>
             </div>
 
-            <details className="mt-6 rounded-xl bg-gray-50 p-4">
+            <details className="mt-6 rounded-xl bg-gray-50 p-4 print:hidden">
               <summary className="cursor-pointer text-sm font-semibold">
                 Технический предпросмотр промпта
               </summary>
