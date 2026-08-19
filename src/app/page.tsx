@@ -22,7 +22,6 @@ export default function Home() {
   const [image, setImage] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState("");
-  const [showAnswers, setShowAnswers] = useState(false);
 
   const addWord = () => {
     const value = draft.trim().replace(/\s+/g, " ");
@@ -51,7 +50,6 @@ export default function Home() {
     setGenerating(true);
     setError("");
     setImage(null);
-    setShowAnswers(false);
     setGenerated(true);
 
     setTimeout(() => {
@@ -117,6 +115,7 @@ export default function Home() {
           }
 
           setImage(statusData.imageUrl);
+
           return;
         }
 
@@ -165,8 +164,6 @@ export default function Home() {
 
       URL.revokeObjectURL(url);
     } catch {
-      // Если браузер не разрешил скачать файл напрямую,
-      // открываем изображение в новой вкладке.
       window.open(image, "_blank");
     }
   };
@@ -181,7 +178,6 @@ export default function Home() {
     setGenerated(false);
     setImage(null);
     setError("");
-    setShowAnswers(false);
 
     setTimeout(() => {
       window.scrollTo({
@@ -202,6 +198,7 @@ export default function Home() {
 
             <div>
               <div className="font-bold">Словарные карточки</div>
+
               <div className="text-xs text-gray-500">
                 Конструктор для начальной школы
               </div>
@@ -210,7 +207,12 @@ export default function Home() {
 
           <button
             className="rounded-lg px-3 py-2 text-sm text-gray-600 hover:bg-gray-100"
-            onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+            onClick={() =>
+              window.scrollTo({
+                top: 0,
+                behavior: "smooth",
+              })
+            }
           >
             Мои карточки
           </button>
@@ -238,7 +240,9 @@ export default function Home() {
 
         <div className="mt-10 grid gap-6 lg:grid-cols-[1fr_360px] print:hidden">
           <div className="rounded-3xl border border-[#e2e7e2] bg-white p-6 shadow-sm">
-            <label className="text-sm font-bold">Тема изображения</label>
+            <label className="text-sm font-bold">
+              Тема изображения
+            </label>
 
             <div className="mt-2 flex gap-2">
               <input
@@ -384,7 +388,9 @@ export default function Home() {
             <button
               onClick={generate}
               disabled={
-                !theme.trim() || words.length === 0 || generating
+                !theme.trim() ||
+                words.length === 0 ||
+                generating
               }
               className="mt-6 w-full rounded-xl bg-[#4f7f52] py-4 font-bold text-white shadow-sm transition hover:bg-[#345b38] disabled:cursor-not-allowed disabled:opacity-40"
             >
@@ -399,7 +405,9 @@ export default function Home() {
           </div>
 
           <aside className="rounded-3xl border border-[#e2e7e2] bg-[#f1f6f1] p-6">
-            <div className="text-sm font-bold">Как это работает</div>
+            <div className="text-sm font-bold">
+              Как это работает
+            </div>
 
             <div className="mt-5 space-y-5 text-sm">
               <Step
@@ -444,10 +452,6 @@ export default function Home() {
                   Тема: {theme} · {grade} класс · {difficulty}
                 </p>
               </div>
-
-              <span className="rounded-full bg-[#e7f0e7] px-3 py-1 text-xs font-semibold text-[#345b38] print:hidden">
-                Демо
-              </span>
             </div>
 
             <div className="mt-6 grid gap-6 lg:grid-cols-[1.4fr_0.6fr] print:block">
@@ -490,7 +494,9 @@ export default function Home() {
               </div>
 
               <div className="print:mt-6">
-                <h3 className="font-bold">Слова для поиска</h3>
+                <h3 className="font-bold">
+                  Слова для поиска
+                </h3>
 
                 <div className="mt-3 flex flex-wrap gap-2">
                   {words.map((w) => (
@@ -503,7 +509,9 @@ export default function Home() {
                   ))}
                 </div>
 
-                <h3 className="mt-7 font-bold">Задания</h3>
+                <h3 className="mt-7 font-bold">
+                  Задания
+                </h3>
 
                 <ol className="mt-3 space-y-3 text-sm leading-6 text-gray-600">
                   <li>
@@ -524,30 +532,7 @@ export default function Home() {
                   </li>
                 </ol>
 
-                {showAnswers && (
-                  <div className="mt-6 rounded-2xl border border-[#dcebdc] bg-[#f7faf7] p-4">
-                    <div className="font-bold text-[#345b38]">
-                      Ответы для учителя
-                    </div>
-
-                    <p className="mt-2 text-sm text-gray-600">
-                      На картинке необходимо найти:
-                    </p>
-
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {words.map((word) => (
-                        <span
-                          key={word}
-                          className="rounded-full bg-white px-3 py-1.5 text-sm font-medium"
-                        >
-                          {word}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                <div className="mt-7 grid gap-2 sm:grid-cols-3 lg:grid-cols-1 print:hidden">
+                <div className="mt-7 grid gap-2 sm:grid-cols-2 lg:grid-cols-1 print:hidden">
                   <button
                     onClick={downloadPNG}
                     disabled={!image}
@@ -565,17 +550,8 @@ export default function Home() {
                   </button>
 
                   <button
-                    onClick={() => setShowAnswers(!showAnswers)}
-                    className="rounded-xl bg-[#4f7f52] py-3 text-sm font-semibold text-white transition hover:bg-[#345b38]"
-                  >
-                    {showAnswers
-                      ? "Скрыть ответы"
-                      : "Ответы для учителя"}
-                  </button>
-
-                  <button
                     onClick={resetCard}
-                    className="rounded-xl border border-[#dcebdc] bg-[#f7faf7] py-3 text-sm font-semibold text-[#345b38] transition hover:bg-[#eef5ee]"
+                    className="rounded-xl bg-[#4f7f52] py-3 text-sm font-semibold text-white transition hover:bg-[#345b38] sm:col-span-2 lg:col-span-1"
                   >
                     Создать новую карточку
                   </button>
@@ -608,7 +584,10 @@ function Option({
 }) {
   return (
     <div>
-      <div className="mb-2 text-sm font-bold">{title}</div>
+      <div className="mb-2 text-sm font-bold">
+        {title}
+      </div>
+
       {children}
     </div>
   );
@@ -630,9 +609,13 @@ function Step({
       </div>
 
       <div>
-        <div className="font-semibold">{t}</div>
+        <div className="font-semibold">
+          {t}
+        </div>
 
-        <div className="mt-1 leading-5 text-gray-500">{d}</div>
+        <div className="mt-1 leading-5 text-gray-500">
+          {d}
+        </div>
       </div>
     </div>
   );
