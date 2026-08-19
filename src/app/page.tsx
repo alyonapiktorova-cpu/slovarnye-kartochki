@@ -10,6 +10,17 @@ const presets = [
   "Вокзал",
 ];
 
+type SavedCard = {
+  id: string;
+  theme: string;
+  words: string[];
+  grade: string;
+  difficulty: string;
+  style: string;
+  image: string;
+  createdAt: string;
+};
+
 export default function Home() {
   const [theme, setTheme] = useState("");
   const [words, setWords] = useState<string[]>([]);
@@ -23,6 +34,10 @@ export default function Home() {
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState("");
 
+  const [showLibrary, setShowLibrary] = useState(false);
+  const [savedCards, setSavedCards] = useState<SavedCard[]>([]);
+  const [libraryLoaded, setLibraryLoaded] = useState(false);
+
   const addWord = () => {
     const value = draft.trim().replace(/\s+/g, " ");
 
@@ -33,6 +48,118 @@ export default function Home() {
     ) {
       setWords([...words, value]);
       setDraft("");
+    }
+  };
+
+  const loadSavedCards = () => {
+    try {
+      const saved = localStorage.getItem("slovarnye-kartochki");
+
+      if (saved) {
+        const parsed = JSON.parse(saved);
+
+        if (Array.isArray(parsed)) {
+          setSavedCards(parsed);
+        }
+      }
+    } catch (e) {
+      console.error("Не удалось загрузить сохранённые карточки:", e);
+    }
+
+    setLibraryLoaded(true);
+  };
+
+  const saveCard = (card: SavedCard) => {
+    try {
+      const existing = localStorage.getItem("slovarnye-kartochki");
+
+      let cards: SavedCard[] = [];
+
+      if (existing) {
+        const parsed = JSON.parse(existing);
+
+        if (Array.isArray(parsed)) {
+          cards = parsed;
+        }
+      }
+
+      const updated = [
+        card,
+        ...cards.filter((item) => item.id !== card.id),
+      ].slice(0, 50);
+
+      localStorage.setItem(
+        "slovarnye-kartochki",
+        JSON.stringify(updated)
+      );
+
+      setSavedCards(updated);
+    } catch (e) {
+      console.error("Не удалось сохранить карточку:", e);
+    }
+  };
+
+  const openLibrary = () => {
+    loadSavedCards();
+    setShowLibrary(true);
+
+    setTimeout(() => {
+      window.scrollTo({
+        top: 0,
+        behavior: "smooth",
+      });
+    }, 50);
+  };
+
+  const closeLibrary = () => {
+    setShowLibrary(false);
+
+    setTimeout(() => {
+      window.scrollTo({
+        top: 0,
+        behavior: "smooth",
+      });
+    }, 50);
+  };
+
+  const openCard = (card: SavedCard) => {
+    setTheme(card.theme);
+    setWords(card.words);
+    setGrade(card.grade);
+    setDifficulty(card.difficulty);
+    setStyle(card.style);
+    setImage(card.image);
+    setGenerated(true);
+    setError("");
+    setShowLibrary(false);
+
+    setTimeout(() => {
+      document.getElementById("result")?.scrollIntoView({
+        behavior: "smooth",
+      });
+    }, 100);
+  };
+
+  const deleteCard = (id: string) => {
+    const confirmed = window.confirm(
+      "Удалить эту карточку?"
+    );
+
+    if (!confirmed) return;
+
+    const updated = savedCards.filter(
+      (card) => card.id !== id
+    );
+
+    setSavedCards(updated);
+
+    try {
+      localStorage.setItem(
+        "slovarnye-kartochki",
+        JSON.stringify(updated)
+      );
+    } catch (e) {
+      console.error("Не удалось обновить сохранённые карточки:", e);
     }
   };
 
@@ -114,7 +241,24 @@ export default function Home() {
             );
           }
 
-          setImage(statusData.imageUrl);
+          const imageUrl = statusData.imageUrl;
+
+          setImage(imageUrl);
+
+          const newCard: SavedCard = {
+            id: `${Date.now()}-${Math.random()
+              .toString(36)
+              .slice(2)}`,
+            theme: theme.trim(),
+            words: [...words],
+            grade,
+            difficulty,
+            style,
+            image: imageUrl,
+            createdAt: new Date().toISOString(),
+          };
+
+          saveCard(newCard);
 
           return;
         }
@@ -124,7 +268,8 @@ export default function Home() {
           statusData.status === "cancelled"
         ) {
           throw new Error(
-            statusData.error || "Генерация изображения не удалась."
+            statusData.error ||
+              "Генерация изображения не удалась."
           );
         }
       }
@@ -155,8 +300,11 @@ export default function Home() {
       const url = URL.createObjectURL(blob);
 
       const link = document.createElement("a");
+
       link.href = url;
-      link.download = `slovarnaya-kartochka-${theme || "kartochka"}.png`;
+      link.download = `slovarnaya-kartochka-${
+        theme || "kartochka"
+      }.png`;
 
       document.body.appendChild(link);
       link.click();
@@ -191,388 +339,586 @@ export default function Home() {
     <main className="min-h-screen">
       <header className="border-b border-[#e5e9e5] bg-white/90 print:hidden">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-4">
-          <div className="flex items-center gap-3">
+          <button
+            onClick={closeLibrary}
+            className="flex items-center gap-3 text-left"
+          >
             <div className="grid h-10 w-10 place-items-center rounded-xl bg-[#e7f0e7] text-xl">
               ✦
             </div>
 
             <div>
-              <div className="font-bold">Словарные карточки</div>
+              <div className="font-bold">
+                Словарные карточки
+              </div>
 
               <div className="text-xs text-gray-500">
                 Конструктор для начальной школы
               </div>
             </div>
-          </div>
+          </button>
 
           <button
-            className="rounded-lg px-3 py-2 text-sm text-gray-600 hover:bg-gray-100"
-            onClick={() =>
-              window.scrollTo({
-                top: 0,
-                behavior: "smooth",
-              })
-            }
+            onClick={openLibrary}
+            className={`rounded-lg px-3 py-2 text-sm transition ${
+              showLibrary
+                ? "bg-[#e7f0e7] font-semibold text-[#345b38]"
+                : "text-gray-600 hover:bg-gray-100"
+            }`}
           >
             Мои карточки
           </button>
         </div>
       </header>
 
-      <section className="mx-auto max-w-6xl px-5 pb-16 pt-12">
-        <div className="max-w-3xl print:hidden">
-          <div className="mb-3 inline-flex rounded-full bg-[#e7f0e7] px-3 py-1 text-xs font-semibold text-[#345b38]">
-            Обучение через игру
-          </div>
-
-          <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">
-            Создайте карточку,
-            <br />
-            в которой слова нужно{" "}
-            <span className="text-[#4f7f52]">найти</span>.
-          </h1>
-
-          <p className="mt-5 max-w-2xl text-lg leading-8 text-gray-600">
-            Задайте сюжет и словарные слова — сервис подготовит иллюстрацию и
-            задания для детей.
-          </p>
-        </div>
-
-        <div className="mt-10 grid gap-6 lg:grid-cols-[1fr_360px] print:hidden">
-          <div className="rounded-3xl border border-[#e2e7e2] bg-white p-6 shadow-sm">
-            <label className="text-sm font-bold">
-              Тема изображения
-            </label>
-
-            <div className="mt-2 flex gap-2">
-              <input
-                value={theme}
-                onChange={(e) => setTheme(e.target.value)}
-                placeholder="Например: осенний парк"
-                className="w-full rounded-xl border border-gray-200 px-4 py-3 outline-none focus:border-[#4f7f52] focus:ring-2 focus:ring-[#dcebdc]"
-              />
-
-              <button
-                onClick={() =>
-                  setTheme(
-                    presets[Math.floor(Math.random() * presets.length)]
-                  )
-                }
-                className="rounded-xl border px-4 text-sm hover:bg-gray-50"
-              >
-                🎲
-              </button>
+      {showLibrary ? (
+        <Library
+          cards={savedCards}
+          loaded={libraryLoaded}
+          onCreate={closeLibrary}
+          onOpen={openCard}
+          onDelete={deleteCard}
+        />
+      ) : (
+        <section className="mx-auto max-w-6xl px-5 pb-16 pt-12">
+          <div className="max-w-3xl print:hidden">
+            <div className="mb-3 inline-flex rounded-full bg-[#e7f0e7] px-3 py-1 text-xs font-semibold text-[#345b38]">
+              Обучение через игру
             </div>
 
-            <label className="mt-7 block text-sm font-bold">
-              Словарные слова
-            </label>
-
-            <div className="mt-2 rounded-xl border border-gray-200 p-3">
-              <div className="mb-2 flex flex-wrap gap-2">
-                {words.map((w) => (
-                  <span
-                    key={w}
-                    className="rounded-full bg-[#eef5ee] px-3 py-1.5 text-sm"
-                  >
-                    {w}
-
-                    <button
-                      onClick={() =>
-                        setWords(words.filter((x) => x !== w))
-                      }
-                      className="ml-2 text-gray-400 hover:text-red-500"
-                    >
-                      ×
-                    </button>
-                  </span>
-                ))}
-              </div>
-
-              <div className="flex gap-2">
-                <input
-                  value={draft}
-                  onChange={(e) => setDraft(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      addWord();
-                    }
-                  }}
-                  placeholder={
-                    words.length >= 12
-                      ? "Максимум 12 слов"
-                      : "Введите слово и нажмите Enter"
-                  }
-                  className="w-full border-0 px-1 py-2 outline-none"
-                />
-
-                <button
-                  onClick={addWord}
-                  disabled={words.length >= 12}
-                  className="rounded-lg bg-gray-100 px-3 text-sm disabled:opacity-40"
-                >
-                  Добавить
-                </button>
-              </div>
-
-              <div className="mt-2 text-xs text-gray-400">
-                {words.length}/12 слов
-              </div>
-            </div>
-
-            <div className="mt-7 grid gap-6 sm:grid-cols-3">
-              <Option title="Класс">
-                <div className="flex gap-2">
-                  {["1", "2", "3", "4"].map((x) => (
-                    <button
-                      key={x}
-                      onClick={() => setGrade(x)}
-                      className={`h-10 w-10 rounded-lg border ${
-                        grade === x
-                          ? "border-[#4f7f52] bg-[#e7f0e7] font-bold"
-                          : "border-gray-200"
-                      }`}
-                    >
-                      {x}
-                    </button>
-                  ))}
-                </div>
-              </Option>
-
-              <Option title="Сложность">
-                <select
-                  value={difficulty}
-                  onChange={(e) => setDifficulty(e.target.value)}
-                  className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5"
-                >
-                  <option>Простая</option>
-                  <option>Средняя</option>
-                  <option>Сложная</option>
-                </select>
-              </Option>
-
-              <Option title="Стиль">
-                <select
-                  value={style}
-                  onChange={(e) => setStyle(e.target.value)}
-                  className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5"
-                >
-                  <option>Реалистичная иллюстрация</option>
-                  <option>Книжная иллюстрация</option>
-                  <option>Акварель</option>
-                  <option>Цветные карандаши</option>
-                </select>
-              </Option>
-            </div>
-
-            <label className="mt-7 flex cursor-pointer items-center gap-3 rounded-xl bg-[#f7f9f7] p-4">
-              <input
-                type="checkbox"
-                checked={checking}
-                onChange={(e) => setChecking(e.target.checked)}
-                className="h-4 w-4 accent-[#4f7f52]"
-              />
-
-              <span>
-                <span className="block text-sm font-semibold">
-                  Проверять картинку автоматически
-                </span>
-
-                <span className="text-xs text-gray-500">
-                  Проверим, что все заданные объекты присутствуют.
-                </span>
+            <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">
+              Создайте карточку,
+              <br />
+              в которой слова нужно{" "}
+              <span className="text-[#4f7f52]">
+                найти
               </span>
-            </label>
+              .
+            </h1>
 
-            <button
-              onClick={generate}
-              disabled={
-                !theme.trim() ||
-                words.length === 0 ||
-                generating
-              }
-              className="mt-6 w-full rounded-xl bg-[#4f7f52] py-4 font-bold text-white shadow-sm transition hover:bg-[#345b38] disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              {generating
-                ? "Создаём карточку…"
-                : "Создать карточку"}
-            </button>
-
-            <p className="mt-3 text-center text-xs text-gray-400">
-              Изображение создаётся с помощью Gemini.
+            <p className="mt-5 max-w-2xl text-lg leading-8 text-gray-600">
+              Задайте сюжет и словарные слова — сервис подготовит
+              иллюстрацию и задания для детей.
             </p>
           </div>
 
-          <aside className="rounded-3xl border border-[#e2e7e2] bg-[#f1f6f1] p-6">
-            <div className="text-sm font-bold">
-              Как это работает
-            </div>
+          <div className="mt-10 grid gap-6 lg:grid-cols-[1fr_360px] print:hidden">
+            <div className="rounded-3xl border border-[#e2e7e2] bg-white p-6 shadow-sm">
+              <label className="text-sm font-bold">
+                Тема изображения
+              </label>
 
-            <div className="mt-5 space-y-5 text-sm">
-              <Step
-                n="1"
-                t="Введите сюжет"
-                d="Например, «Осенний парк»."
-              />
+              <div className="mt-2 flex gap-2">
+                <input
+                  value={theme}
+                  onChange={(e) =>
+                    setTheme(e.target.value)
+                  }
+                  placeholder="Например: осенний парк"
+                  className="w-full rounded-xl border border-gray-200 px-4 py-3 outline-none focus:border-[#4f7f52] focus:ring-2 focus:ring-[#dcebdc]"
+                />
 
-              <Step
-                n="2"
-                t="Добавьте слова"
-                d="Дети будут искать не написанные слова, а предметы на картинке."
-              />
-
-              <Step
-                n="3"
-                t="Создайте карточку"
-                d="ИИ сформирует сцену и учебные задания."
-              />
-            </div>
-
-            <div className="mt-8 rounded-2xl bg-white p-4 text-xs leading-5 text-gray-500">
-              <b className="text-gray-700">Совет:</b> для первой карточки
-              добавьте 5–10 слов. Так ребёнку будет легче сосредоточиться на
-              поиске.
-            </div>
-          </aside>
-        </div>
-
-        {generated && (
-          <section
-            id="result"
-            className="mt-10 rounded-3xl border border-[#e2e7e2] bg-white p-6 shadow-sm print:mt-0 print:border-0 print:p-0 print:shadow-none"
-          >
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-2xl font-bold">
-                  Предпросмотр карточки
-                </h2>
-
-                <p className="mt-1 text-sm text-gray-500">
-                  Тема: {theme} · {grade} класс · {difficulty}
-                </p>
-              </div>
-            </div>
-
-            <div className="mt-6 grid gap-6 lg:grid-cols-[1.4fr_0.6fr] print:block">
-              <div className="grid min-h-[430px] place-items-center overflow-hidden rounded-2xl bg-gradient-to-br from-[#edf3e9] via-[#f7f4e8] to-[#e7eee8] p-4 text-center print:min-h-0 print:bg-white print:p-0">
-                {image ? (
-                  <img
-                    src={image}
-                    alt={`Иллюстрация: ${theme}`}
-                    className="h-auto w-full rounded-xl object-contain print:rounded-none"
-                  />
-                ) : generating ? (
-                  <div className="print:hidden">
-                    <div className="text-5xl">✦</div>
-
-                    <p className="mt-5 font-semibold text-gray-700">
-                      Создаём иллюстрацию…
-                    </p>
-
-                    <p className="mt-2 text-sm text-gray-500">
-                      Это может занять некоторое время.
-                    </p>
-                  </div>
-                ) : error ? (
-                  <div className="print:hidden">
-                    <p className="font-semibold text-red-700">
-                      Не удалось создать карточку
-                    </p>
-
-                    <p className="mt-2 max-w-xl text-sm text-gray-600">
-                      {error}
-                    </p>
-                  </div>
-                ) : (
-                  <div className="print:hidden">
-                    <p className="font-semibold text-gray-700">
-                      Готовим карточку
-                    </p>
-                  </div>
-                )}
+                <button
+                  onClick={() =>
+                    setTheme(
+                      presets[
+                        Math.floor(
+                          Math.random() * presets.length
+                        )
+                      ]
+                    )
+                  }
+                  className="rounded-xl border px-4 text-sm hover:bg-gray-50"
+                >
+                  🎲
+                </button>
               </div>
 
-              <div className="print:mt-6">
-                <h3 className="font-bold">
-                  Слова для поиска
-                </h3>
+              <label className="mt-7 block text-sm font-bold">
+                Словарные слова
+              </label>
 
-                <div className="mt-3 flex flex-wrap gap-2">
+              <div className="mt-2 rounded-xl border border-gray-200 p-3">
+                <div className="mb-2 flex flex-wrap gap-2">
                   {words.map((w) => (
                     <span
                       key={w}
-                      className="rounded-full border px-3 py-1.5 text-sm"
+                      className="rounded-full bg-[#eef5ee] px-3 py-1.5 text-sm"
                     >
                       {w}
+
+                      <button
+                        onClick={() =>
+                          setWords(
+                            words.filter((x) => x !== w)
+                          )
+                        }
+                        className="ml-2 text-gray-400 hover:text-red-500"
+                      >
+                        ×
+                      </button>
                     </span>
                   ))}
                 </div>
 
-                <h3 className="mt-7 font-bold">
-                  Задания
-                </h3>
-
-                <ol className="mt-3 space-y-3 text-sm leading-6 text-gray-600">
-                  <li>
-                    1. Найди на картинке все предметы, которые обозначают
-                    словарные слова.
-                  </li>
-
-                  <li>
-                    2. Запиши найденные слова в тетрадь.
-                  </li>
-
-                  <li>
-                    3. Подчеркни букву, написание которой нужно запомнить.
-                  </li>
-
-                  <li>
-                    4. Составь предложение с двумя найденными словами.
-                  </li>
-                </ol>
-
-                <div className="mt-7 grid gap-2 sm:grid-cols-2 lg:grid-cols-1 print:hidden">
-                  <button
-                    onClick={downloadPNG}
-                    disabled={!image}
-                    className="rounded-xl border py-3 text-sm font-semibold transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    Скачать PNG
-                  </button>
+                <div className="flex gap-2">
+                  <input
+                    value={draft}
+                    onChange={(e) =>
+                      setDraft(e.target.value)
+                    }
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        addWord();
+                      }
+                    }}
+                    placeholder={
+                      words.length >= 12
+                        ? "Максимум 12 слов"
+                        : "Введите слово и нажмите Enter"
+                    }
+                    className="w-full border-0 px-1 py-2 outline-none"
+                  />
 
                   <button
-                    onClick={downloadPDF}
-                    disabled={!image}
-                    className="rounded-xl border py-3 text-sm font-semibold transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+                    onClick={addWord}
+                    disabled={words.length >= 12}
+                    className="rounded-lg bg-gray-100 px-3 text-sm disabled:opacity-40"
                   >
-                    Скачать PDF
-                  </button>
-
-                  <button
-                    onClick={resetCard}
-                    className="rounded-xl bg-[#4f7f52] py-3 text-sm font-semibold text-white transition hover:bg-[#345b38] sm:col-span-2 lg:col-span-1"
-                  >
-                    Создать новую карточку
+                    Добавить
                   </button>
                 </div>
+
+                <div className="mt-2 text-xs text-gray-400">
+                  {words.length}/12 слов
+                </div>
               </div>
+
+              <div className="mt-7 grid gap-6 sm:grid-cols-3">
+                <Option title="Класс">
+                  <div className="flex gap-2">
+                    {["1", "2", "3", "4"].map((x) => (
+                      <button
+                        key={x}
+                        onClick={() => setGrade(x)}
+                        className={`h-10 w-10 rounded-lg border ${
+                          grade === x
+                            ? "border-[#4f7f52] bg-[#e7f0e7] font-bold"
+                            : "border-gray-200"
+                        }`}
+                      >
+                        {x}
+                      </button>
+                    ))}
+                  </div>
+                </Option>
+
+                <Option title="Сложность">
+                  <select
+                    value={difficulty}
+                    onChange={(e) =>
+                      setDifficulty(e.target.value)
+                    }
+                    className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5"
+                  >
+                    <option>Простая</option>
+                    <option>Средняя</option>
+                    <option>Сложная</option>
+                  </select>
+                </Option>
+
+                <Option title="Стиль">
+                  <select
+                    value={style}
+                    onChange={(e) =>
+                      setStyle(e.target.value)
+                    }
+                    className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5"
+                  >
+                    <option>
+                      Реалистичная иллюстрация
+                    </option>
+                    <option>
+                      Книжная иллюстрация
+                    </option>
+                    <option>Акварель</option>
+                    <option>Цветные карандаши</option>
+                  </select>
+                </Option>
+              </div>
+
+              <label className="mt-7 flex cursor-pointer items-center gap-3 rounded-xl bg-[#f7f9f7] p-4">
+                <input
+                  type="checkbox"
+                  checked={checking}
+                  onChange={(e) =>
+                    setChecking(e.target.checked)
+                  }
+                  className="h-4 w-4 accent-[#4f7f52]"
+                />
+
+                <span>
+                  <span className="block text-sm font-semibold">
+                    Проверять картинку автоматически
+                  </span>
+
+                  <span className="text-xs text-gray-500">
+                    Проверим, что все заданные объекты присутствуют.
+                  </span>
+                </span>
+              </label>
+
+              <button
+                onClick={generate}
+                disabled={
+                  !theme.trim() ||
+                  words.length === 0 ||
+                  generating
+                }
+                className="mt-6 w-full rounded-xl bg-[#4f7f52] py-4 font-bold text-white shadow-sm transition hover:bg-[#345b38] disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {generating
+                  ? "Создаём карточку…"
+                  : "Создать карточку"}
+              </button>
+
+              <p className="mt-3 text-center text-xs text-gray-400">
+                Изображение создаётся с помощью Gemini.
+              </p>
             </div>
 
-            <details className="mt-6 rounded-xl bg-gray-50 p-4 print:hidden">
-              <summary className="cursor-pointer text-sm font-semibold">
-                Технический предпросмотр промпта
-              </summary>
+            <aside className="rounded-3xl border border-[#e2e7e2] bg-[#f1f6f1] p-6">
+              <div className="text-sm font-bold">
+                Как это работает
+              </div>
 
-              <pre className="mt-3 whitespace-pre-wrap text-xs leading-5 text-gray-500">
-                {promptPreview}
-              </pre>
-            </details>
-          </section>
-        )}
-      </section>
+              <div className="mt-5 space-y-5 text-sm">
+                <Step
+                  n="1"
+                  t="Введите сюжет"
+                  d="Например, «Осенний парк»."
+                />
+
+                <Step
+                  n="2"
+                  t="Добавьте слова"
+                  d="Дети будут искать не написанные слова, а предметы на картинке."
+                />
+
+                <Step
+                  n="3"
+                  t="Создайте карточку"
+                  d="ИИ сформирует сцену и учебные задания."
+                />
+              </div>
+
+              <div className="mt-8 rounded-2xl bg-white p-4 text-xs leading-5 text-gray-500">
+                <b className="text-gray-700">
+                  Совет:
+                </b>{" "}
+                для первой карточки добавьте 5–10 слов. Так ребёнку будет
+                легче сосредоточиться на поиске.
+              </div>
+            </aside>
+          </div>
+
+          {generated && (
+            <section
+              id="result"
+              className="mt-10 rounded-3xl border border-[#e2e7e2] bg-white p-6 shadow-sm print:mt-0 print:border-0 print:p-0 print:shadow-none"
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-2xl font-bold">
+                    Предпросмотр карточки
+                  </h2>
+
+                  <p className="mt-1 text-sm text-gray-500">
+                    Тема: {theme} · {grade} класс ·{" "}
+                    {difficulty}
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-6 grid gap-6 lg:grid-cols-[1.4fr_0.6fr] print:block">
+                <div className="grid min-h-[430px] place-items-center overflow-hidden rounded-2xl bg-gradient-to-br from-[#edf3e9] via-[#f7f4e8] to-[#e7eee8] p-4 text-center print:min-h-0 print:bg-white print:p-0">
+                  {image ? (
+                    <img
+                      src={image}
+                      alt={`Иллюстрация: ${theme}`}
+                      className="h-auto w-full rounded-xl object-contain print:rounded-none"
+                    />
+                  ) : generating ? (
+                    <div className="print:hidden">
+                      <div className="text-5xl">
+                        ✦
+                      </div>
+
+                      <p className="mt-5 font-semibold text-gray-700">
+                        Создаём иллюстрацию…
+                      </p>
+
+                      <p className="mt-2 text-sm text-gray-500">
+                        Это может занять некоторое время.
+                      </p>
+                    </div>
+                  ) : error ? (
+                    <div className="print:hidden">
+                      <p className="font-semibold text-red-700">
+                        Не удалось создать карточку
+                      </p>
+
+                      <p className="mt-2 max-w-xl text-sm text-gray-600">
+                        {error}
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="print:hidden">
+                      <p className="font-semibold text-gray-700">
+                        Готовим карточку
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                <div className="print:mt-6">
+                  <h3 className="font-bold">
+                    Слова для поиска
+                  </h3>
+
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {words.map((w) => (
+                      <span
+                        key={w}
+                        className="rounded-full border px-3 py-1.5 text-sm"
+                      >
+                        {w}
+                      </span>
+                    ))}
+                  </div>
+
+                  <h3 className="mt-7 font-bold">
+                    Задания
+                  </h3>
+
+                  <ol className="mt-3 space-y-3 text-sm leading-6 text-gray-600">
+                    <li>
+                      1. Найди на картинке все предметы, которые обозначают
+                      словарные слова.
+                    </li>
+
+                    <li>
+                      2. Запиши найденные слова в тетрадь.
+                    </li>
+
+                    <li>
+                      3. Подчеркни букву, написание которой нужно запомнить.
+                    </li>
+
+                    <li>
+                      4. Составь предложение с двумя найденными словами.
+                    </li>
+                  </ol>
+
+                  <div className="mt-7 grid gap-2 sm:grid-cols-2 lg:grid-cols-1 print:hidden">
+                    <button
+                      onClick={downloadPNG}
+                      disabled={!image}
+                      className="rounded-xl border py-3 text-sm font-semibold transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      Скачать PNG
+                    </button>
+
+                    <button
+                      onClick={downloadPDF}
+                      disabled={!image}
+                      className="rounded-xl border py-3 text-sm font-semibold transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      Скачать PDF
+                    </button>
+
+                    <button
+                      onClick={resetCard}
+                      className="rounded-xl bg-[#4f7f52] py-3 text-sm font-semibold text-white transition hover:bg-[#345b38] sm:col-span-2 lg:col-span-1"
+                    >
+                      Создать новую карточку
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <details className="mt-6 rounded-xl bg-gray-50 p-4 print:hidden">
+                <summary className="cursor-pointer text-sm font-semibold">
+                  Технический предпросмотр промпта
+                </summary>
+
+                <pre className="mt-3 whitespace-pre-wrap text-xs leading-5 text-gray-500">
+                  {promptPreview}
+                </pre>
+              </details>
+            </section>
+          )}
+        </section>
+      )}
     </main>
   );
+}
+
+function Library({
+  cards,
+  loaded,
+  onCreate,
+  onOpen,
+  onDelete,
+}: {
+  cards: SavedCard[];
+  loaded: boolean;
+  onCreate: () => void;
+  onOpen: (card: SavedCard) => void;
+  onDelete: (id: string) => void;
+}) {
+  return (
+    <section className="mx-auto max-w-6xl px-5 pb-16 pt-12">
+      <div className="flex items-end justify-between gap-4">
+        <div>
+          <div className="mb-3 inline-flex rounded-full bg-[#e7f0e7] px-3 py-1 text-xs font-semibold text-[#345b38]">
+            Ваша библиотека
+          </div>
+
+          <h1 className="text-4xl font-bold tracking-tight">
+            Мои карточки
+          </h1>
+
+          <p className="mt-3 text-gray-600">
+            Здесь сохраняются созданные вами словарные карточки.
+          </p>
+        </div>
+
+        <button
+          onClick={onCreate}
+          className="hidden rounded-xl bg-[#4f7f52] px-5 py-3 text-sm font-bold text-white transition hover:bg-[#345b38] sm:block"
+        >
+          + Создать карточку
+        </button>
+      </div>
+
+      {!loaded ? (
+        <div className="mt-10 rounded-3xl border border-[#e2e7e2] bg-white p-12 text-center shadow-sm">
+          <div className="text-4xl">✦</div>
+
+          <p className="mt-4 font-semibold">
+            Загружаем карточки…
+          </p>
+        </div>
+      ) : cards.length === 0 ? (
+        <div className="mt-10 rounded-3xl border border-[#e2e7e2] bg-white p-12 text-center shadow-sm">
+          <div className="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-[#e7f0e7] text-3xl">
+            ✦
+          </div>
+
+          <h2 className="mt-5 text-xl font-bold">
+            Пока нет сохранённых карточек
+          </h2>
+
+          <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-gray-500">
+            Создайте первую словарную карточку — после генерации она
+            автоматически появится здесь.
+          </p>
+
+          <button
+            onClick={onCreate}
+            className="mt-6 rounded-xl bg-[#4f7f52] px-6 py-3 text-sm font-bold text-white transition hover:bg-[#345b38]"
+          >
+            Создать первую карточку
+          </button>
+        </div>
+      ) : (
+        <>
+          <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {cards.map((card) => (
+              <article
+                key={card.id}
+                className="overflow-hidden rounded-3xl border border-[#e2e7e2] bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+              >
+                <button
+                  onClick={() => onOpen(card)}
+                  className="block w-full text-left"
+                >
+                  <div className="aspect-[16/10] overflow-hidden bg-[#f1f6f1]">
+                    <img
+                      src={card.image}
+                      alt={`Карточка: ${card.theme}`}
+                      className="h-full w-full object-cover"
+                    />
+                  </div>
+
+                  <div className="p-5">
+                    <h2 className="font-bold">
+                      {card.theme}
+                    </h2>
+
+                    <p className="mt-1 text-sm text-gray-500">
+                      {card.grade} класс · {card.difficulty}
+                    </p>
+
+                    <div className="mt-4 flex flex-wrap gap-1.5">
+                      {card.words.slice(0, 5).map((word) => (
+                        <span
+                          key={word}
+                          className="rounded-full bg-[#eef5ee] px-2.5 py-1 text-xs"
+                        >
+                          {word}
+                        </span>
+                      ))}
+
+                      {card.words.length > 5 && (
+                        <span className="rounded-full bg-gray-100 px-2.5 py-1 text-xs text-gray-500">
+                          +{card.words.length - 5}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </button>
+
+                <div className="flex items-center justify-between border-t border-[#eef1ee] px-5 py-3">
+                  <span className="text-xs text-gray-400">
+                    {formatDate(card.createdAt)}
+                  </span>
+
+                  <button
+                    onClick={() => onDelete(card.id)}
+                    className="text-xs font-medium text-gray-400 hover:text-red-500"
+                  >
+                    Удалить
+                  </button>
+                </div>
+              </article>
+            ))}
+          </div>
+
+          <button
+            onClick={onCreate}
+            className="mt-8 w-full rounded-xl bg-[#4f7f52] py-4 text-sm font-bold text-white transition hover:bg-[#345b38] sm:hidden"
+          >
+            + Создать карточку
+          </button>
+        </>
+      )}
+    </section>
+  );
+}
+
+function formatDate(value: string) {
+  try {
+    return new Date(value).toLocaleDateString("ru-RU", {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    });
+  } catch {
+    return "";
+  }
 }
 
 function Option({
